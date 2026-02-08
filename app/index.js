@@ -251,21 +251,30 @@ const MATCH3_HTML = `<!doctype html>
     input,button{font-size:14px;padding:8px;border-radius:8px;border:1px solid #e5e7eb;}
     button{cursor:pointer;background:#111827;color:white;border:1px solid #111827;}
     button.secondary{background:white;color:#111827;}
-    .grid{display:grid;gap:6px;margin-top:16px;}
-    .cell{width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid #e5e7eb;background:#f9fafb;user-select:none;font-size:28px;line-height:1;}
-    .cell.tile{background:white;border-color:#d1d5db;}
-    .cell.sel{outline:3px solid #2563eb;}
     .bar{margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .pill{padding:6px 10px;border-radius:999px;background:#f3f4f6;}
     .small{font-size:12px;color:#6b7280}
     .panel{margin-top:16px;border:1px solid #e5e7eb;border-radius:12px;padding:12px;}
     pre{background:#0b1020;color:#d1e7ff;padding:12px;border-radius:10px;overflow:auto;max-height:220px}
     a{color:#2563eb;text-decoration:none}
+
+    /* Board */
+    #boardWrap{margin-top:16px;}
+    #board{position:relative; width: calc(8 * 54px + 7 * 6px); height: calc(8 * 54px + 7 * 6px); touch-action: none;}
+    .tile{position:absolute; width:54px; height:54px; display:flex; align-items:center; justify-content:center;
+      border-radius:12px; border:1px solid #d1d5db; background:white; user-select:none;
+      font-size:28px; line-height:1;
+      transition: transform 160ms ease;
+      will-change: transform;
+    }
+    .tile.sel{outline:3px solid #2563eb;}
+    .tile.pop{animation: pop 160ms ease forwards;}
+    @keyframes pop{ 0%{transform: translate(var(--x), var(--y)) scale(1);} 100%{transform: translate(var(--x), var(--y)) scale(0.1); opacity:0;} }
   </style>
 </head>
 <body>
-  <h2>MATCH3 Web Demo (8×8, moves)</h2>
-  <div class="small">Swap adjacent tiles to make 3+ matches. Auto clear + drop + refill + cascades.</div>
+  <h2>MATCH3 Web Demo (8×8, swipe)</h2>
+  <div class="small">Swipe a tile to swap with adjacent. 3+ matches clear, drop & refill with cascades.</div>
 
   <div class="top">
     <span class="pill">Moves: <b id="moves">--</b></span>
@@ -277,7 +286,9 @@ const MATCH3_HTML = `<!doctype html>
     <a href="/console" class="small">API console</a>
   </div>
 
-  <div id="grid" class="grid"></div>
+  <div id="boardWrap">
+    <div id="board"></div>
+  </div>
 
   <div class="panel">
     <div><b>Debug</b></div>
@@ -293,8 +304,12 @@ const OUT = (x) => {
 const N = 8;
 const TYPES = 6;
 const EMOJI = ['','🍎','🍋','🍇','🍓','🍒','🥝'];
+const SIZE = 54;
+const GAP = 6;
+const THRESH = 14; // swipe threshold
 
-let grid = []; // grid[r][c] = type 1..TYPES
+let grid = []; // grid[r][c] = {id, t}
+let nextId = 1;
 let selected = null;
 let moves = 25;
 let score = 0;
@@ -304,9 +319,18 @@ let goalNeed = 20;
 let bomb = 1;
 let busy = false;
 
+const boardEl = document.getElementById('board');
+const tileEls = new Map(); // id -> el
+
 function randType(){ return 1 + Math.floor(Math.random()*TYPES); }
 function inBounds(r,c){ return r>=0 && r<N && c>=0 && c<N; }
-function cloneGrid(){ return grid.map(row=>row.slice()); }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function posToXY(r,c){
+  const x = c*(SIZE+GAP);
+  const y = r*(SIZE+GAP);
+  return {x,y};
+}
 
 function setStatus(){
   document.getElementById('moves').textContent = String(moves);
@@ -315,34 +339,40 @@ function setStatus(){
   document.getElementById('goalNeed').textContent = String(goalNeed);
 }
 
-function render(){
-  const g=document.getElementById('grid');
-  g.style.gridTemplateColumns = "repeat(" + N + ", 54px)";
-  g.innerHTML='';
-  for(let r=0;r<N;r++){
-    for(let c=0;c<N;c++){
-      const t=grid[r][c];
-      const d=document.createElement('div');
-      d.className='cell tile';
-      if(selected && selected.r===r && selected.c===c) d.classList.add('sel');
-      d.textContent = EMOJI[t] || String(t);
-      d.onclick=()=>onClick(r,c);
-      g.appendChild(d);
-    }
+function mountTile(cell, r, c){
+  let el = tileEls.get(cell.id);
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'tile';
+    el.dataset.id = String(cell.id);
+    boardEl.appendChild(el);
+    tileEls.set(cell.id, el);
   }
+  el.textContent = EMOJI[cell.t] || String(cell.t);
+  const {x,y} = posToXY(r,c);
+  // store vars for pop keyframes
+  el.style.setProperty('--x', x+'px');
+  el.style.setProperty('--y', y+'px');
+  el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  if(selected && selected.r===r && selected.c===c) el.classList.add('sel');
+  else el.classList.remove('sel');
+}
+
+function renderAll(){
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) mountTile(grid[r][c], r, c);
   setStatus();
 }
 
 function initGrid(){
-  grid = Array.from({length:N}, ()=> Array.from({length:N}, ()=>0));
+  grid = Array.from({length:N}, ()=> Array.from({length:N}, ()=>null));
   for(let r=0;r<N;r++){
     for(let c=0;c<N;c++){
       let t=randType();
       // avoid immediate matches on spawn
-      while((c>=2 && t===grid[r][c-1] && t===grid[r][c-2]) || (r>=2 && t===grid[r-1][c] && t===grid[r-2][c])){
+      while((c>=2 && t===grid[r][c-1]?.t && t===grid[r][c-2]?.t) || (r>=2 && t===grid[r-1][c]?.t && t===grid[r-2][c]?.t)){
         t=randType();
       }
-      grid[r][c]=t;
+      grid[r][c] = { id: nextId++, t };
     }
   }
 }
@@ -353,9 +383,9 @@ function findMatches(){
   for(let r=0;r<N;r++){
     let c=0;
     while(c<N){
-      const t=grid[r][c];
+      const t=grid[r][c].t;
       let k=c+1;
-      while(k<N && grid[r][k]===t) k++;
+      while(k<N && grid[r][k].t===t) k++;
       if(t && k-c>=3){ for(let x=c;x<k;x++) marks[r][x]=true; }
       c=k;
     }
@@ -364,9 +394,9 @@ function findMatches(){
   for(let c=0;c<N;c++){
     let r=0;
     while(r<N){
-      const t=grid[r][c];
+      const t=grid[r][c].t;
       let k=r+1;
-      while(k<N && grid[k][c]===t) k++;
+      while(k<N && grid[k][c].t===t) k++;
       if(t && k-r>=3){ for(let x=r;x<k;x++) marks[x][c]=true; }
       r=k;
     }
@@ -379,32 +409,44 @@ function anyMarked(marks){
   return false;
 }
 
-function clearMarked(marks){
+async function clearMarkedAnimated(marks){
   let cleared=0;
-  for(let r=0;r<N;r++){
-    for(let c=0;c<N;c++){
-      if(marks[r][c]){
-        const t=grid[r][c];
-        if(t===goalType) goal++;
-        grid[r][c]=0;
-        cleared++;
-      }
+  const toPop=[];
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(marks[r][c]){
+      const cell=grid[r][c];
+      if(cell.t===goalType) goal++;
+      const el=tileEls.get(cell.id);
+      if(el){ el.classList.add('pop'); }
+      toPop.push(cell.id);
+      grid[r][c] = { id: nextId++, t: 0 }; // placeholder empty with new id
+      cleared++;
     }
   }
   score += cleared * 10;
+  setStatus();
+  await sleep(170);
+  // remove popped dom nodes
+  for(const id of toPop){
+    const el=tileEls.get(id);
+    if(el){ el.remove(); tileEls.delete(id); }
+  }
 }
 
 function dropAndRefill(){
   for(let c=0;c<N;c++){
-    let write=N-1;
+    const col=[];
     for(let r=N-1;r>=0;r--){
-      if(grid[r][c]!==0){
-        grid[write][c]=grid[r][c];
-        if(write!==r) grid[r][c]=0;
-        write--;
-      }
+      if(grid[r][c].t!==0) col.push(grid[r][c]);
     }
-    for(let r=write;r>=0;r--) grid[r][c]=randType();
+    let write=N-1;
+    for(const cell of col){
+      grid[write][c]=cell;
+      write--;
+    }
+    for(let r=write;r>=0;r--){
+      grid[r][c] = { id: nextId++, t: randType() };
+    }
   }
 }
 
@@ -413,10 +455,12 @@ async function resolveCascades(){
   while(true){
     const m=findMatches();
     if(!anyMarked(m)) break;
-    clearMarked(m);
+    await clearMarkedAnimated(m);
     dropAndRefill();
+    renderAll();
+    await sleep(170);
     loops++;
-    if(loops>20) break;
+    if(loops>25) break;
   }
 }
 
@@ -425,48 +469,47 @@ function isAdjacent(a,b){
   return (dr+dc)===1;
 }
 
-async function onClick(r,c){
+async function trySwap(a,b){
   if(busy) return;
   if(moves<=0) return;
+  if(!isAdjacent(a,b)) return;
 
-  if(!selected){ selected={r,c}; render(); return; }
-  const a=selected;
-  const b={r,c};
-  selected=null;
-
-  if(!isAdjacent(a,b)) { render(); return; }
-
-  // swap
   busy=true;
-  const before=cloneGrid();
+  // swap in model
   const tmp=grid[a.r][a.c];
   grid[a.r][a.c]=grid[b.r][b.c];
   grid[b.r][b.c]=tmp;
+  renderAll();
+  await sleep(170);
 
   const m=findMatches();
   if(!anyMarked(m)){
-    // invalid move -> swap back
-    grid=before;
+    // swap back
+    const tmp2=grid[a.r][a.c];
+    grid[a.r][a.c]=grid[b.r][b.c];
+    grid[b.r][b.c]=tmp2;
+    renderAll();
+    await sleep(170);
     busy=false;
-    render();
     return;
   }
 
   moves -= 1;
+  setStatus();
   await resolveCascades();
-  render();
   busy=false;
   checkEnd();
 }
 
+async function onClick(r,c){
+  // keep click selection for bomb usage (optional)
+  selected = {r,c};
+  renderAll();
+}
+
 function checkEnd(){
-  if(goal>=goalNeed){
-    setTimeout(()=>alert('Win!'), 50);
-    return;
-  }
-  if(moves<=0){
-    setTimeout(()=>alert('Out of moves!'), 50);
-  }
+  if(goal>=goalNeed){ setTimeout(()=>alert('Win!'), 50); return; }
+  if(moves<=0){ setTimeout(()=>alert('Out of moves!'), 50); }
 }
 
 async function propBomb(){
@@ -477,16 +520,18 @@ async function propBomb(){
   bomb -= 1;
   const r0=selected.r, c0=selected.c;
   selected=null;
-  // clear 3x3
+
   const marks = Array.from({length:N}, ()=> Array.from({length:N}, ()=>false));
   for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
     const r=r0+dr, c=c0+dc;
     if(inBounds(r,c)) marks[r][c]=true;
   }
-  clearMarked(marks);
+  await clearMarkedAnimated(marks);
   dropAndRefill();
+  renderAll();
+  await sleep(170);
   await resolveCascades();
-  render();
+  renderAll();
   busy=false;
   checkEnd();
 }
@@ -500,15 +545,65 @@ function newGame(){
   goalNeed=20;
   goalType=1;
   bomb=1;
+  // clear dom
+  boardEl.innerHTML='';
+  tileEls.clear();
+
   initGrid();
-  // resolve any accidental matches
-  resolveCascades().then(()=>{ render(); });
+  renderAll();
+  // resolve any accidental matches (should be none, but safe)
+  resolveCascades().then(()=>renderAll());
 }
+
+// Swipe handling
+let pDown = null; // {r,c,x,y,done}
+function xyToCell(clientX, clientY){
+  const rect=boardEl.getBoundingClientRect();
+  const x=clientX-rect.left;
+  const y=clientY-rect.top;
+  const c=Math.floor(x/(SIZE+GAP));
+  const r=Math.floor(y/(SIZE+GAP));
+  if(!inBounds(r,c)) return null;
+  return {r,c};
+}
+
+boardEl.addEventListener('pointerdown', (e)=>{
+  if(busy) return;
+  const cell = xyToCell(e.clientX, e.clientY);
+  if(!cell) return;
+  pDown = {r:cell.r, c:cell.c, x:e.clientX, y:e.clientY, done:false};
+  boardEl.setPointerCapture(e.pointerId);
+});
+
+boardEl.addEventListener('pointermove', (e)=>{
+  if(!pDown || pDown.done || busy) return;
+  const dx=e.clientX-pDown.x;
+  const dy=e.clientY-pDown.y;
+  if(Math.abs(dx)<THRESH && Math.abs(dy)<THRESH) return;
+  pDown.done=true;
+  let dr=0, dc=0;
+  if(Math.abs(dx) > Math.abs(dy)) dc = dx>0 ? 1 : -1;
+  else dr = dy>0 ? 1 : -1;
+  const a={r:pDown.r, c:pDown.c};
+  const b={r:pDown.r+dr, c:pDown.c+dc};
+  if(!inBounds(b.r,b.c)) return;
+  trySwap(a,b);
+});
+
+boardEl.addEventListener('pointerup', (e)=>{
+  if(!pDown) return;
+  // tap fallback: select for bomb
+  if(!pDown.done){
+    onClick(pDown.r,pDown.c);
+  }
+  pDown=null;
+});
 
 newGame();
 </script>
 </body>
 </html>`;
+
 
 
 const DEMO_HTML = `<!doctype html>
