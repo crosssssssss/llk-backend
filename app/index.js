@@ -264,7 +264,7 @@ const MATCH3_HTML = `<!doctype html>
     .tile{position:absolute; width:54px; height:54px; display:flex; align-items:center; justify-content:center;
       border-radius:12px; border:1px solid #d1d5db; background:white; user-select:none;
       font-size:28px; line-height:1;
-      transition: transform 420ms cubic-bezier(.18,1.05,.3,1);
+      transition: transform 360ms cubic-bezier(.20,1.08,.32,1);
       box-shadow: 0 14px 28px rgba(0,0,0,.14), 0 3px 0 rgba(0,0,0,.10);
       border: 1px solid rgba(255,255,255,.55);
       background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.72));
@@ -287,7 +287,7 @@ const MATCH3_HTML = `<!doctype html>
     .t4{background: linear-gradient(180deg,#ffc0e8,#ff6ec7);}
     .t5{background: linear-gradient(180deg,#ffd0a8,#ff7a3d);}
     .t6{background: linear-gradient(180deg,#c9ffd6,#22c55e);} 
-    .tile.pop{animation: pop 420ms ease forwards;}
+    .tile.pop{animation: pop 360ms ease forwards;}
     @keyframes pop{ 0%{transform: translate(var(--x), var(--y)) scale(1);} 100%{transform: translate(var(--x), var(--y)) scale(0.1); opacity:0;} }
   </style>
 </head>
@@ -466,7 +466,7 @@ async function clearMarkedAnimated(marks){
   }
   score += cleared * 10;
   setStatus();
-  await sleep(460);
+  await sleep(400);
   // remove popped dom nodes
   for(const id of toPop){
     const el=tileEls.get(id);
@@ -499,7 +499,7 @@ async function resolveCascades(){
     await clearMarkedAnimated(m);
     dropAndRefill();
     renderAll();
-    await sleep(460);
+    await sleep(400);
     loops++;
     if(loops>25) break;
   }
@@ -521,7 +521,7 @@ async function trySwap(a,b){
   grid[a.r][a.c]=grid[b.r][b.c];
   grid[b.r][b.c]=tmp;
   renderAll();
-  await sleep(460);
+  await sleep(400);
 
   const m=findMatches();
   if(!anyMarked(m)){
@@ -530,7 +530,7 @@ async function trySwap(a,b){
     grid[a.r][a.c]=grid[b.r][b.c];
     grid[b.r][b.c]=tmp2;
     renderAll();
-    await sleep(460);
+    await sleep(400);
     busy=false;
     return;
   }
@@ -570,7 +570,7 @@ async function propBomb(){
   await clearMarkedAnimated(marks);
   dropAndRefill();
   renderAll();
-  await sleep(460);
+  await sleep(400);
   await resolveCascades();
   renderAll();
   busy=false;
