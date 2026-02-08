@@ -6,7 +6,10 @@ import { env } from '../../_common/env.js';
 import { readJson, json, fetchWithTimeout } from '../../_common/http.js';
 
 const port = env.PORT || 8080;
-const redis = new Redis(env.REDIS_URL, { lazyConnect: true });
+let redis = null;
+if (env.REDIS_URL && env.REDIS_URL !== "" && !process.env.DISABLE_REDIS) {
+  redis = new Redis(env.REDIS_URL, { lazyConnect: true });
+}
 
 const routes = [
   { prefix: '/api/user', target: process.env.USER_SVC_URL || 'http://127.0.0.1:3001' },
@@ -34,7 +37,8 @@ function onFail(route) {
 }
 
 async function rateLimit(ip) {
-  const k = `llk:gw:rl:${ip}`;
+  if (!redis) return false;
+  const k = `llk:gw:rl:`;
   const c = await redis.incr(k);
   if (c === 1) await redis.expire(k, 1);
   return c > 80;
@@ -106,5 +110,5 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-redis.connect().catch(() => {});
+if (redis) redis.connect().catch(() => {});
 server.listen(port, () => console.log('gateway listening on', port));
