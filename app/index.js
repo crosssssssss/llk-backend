@@ -454,7 +454,7 @@ function ensureHasMove(){
 
 function render(){
   const g=document.getElementById('grid');
-  g.style.gridTemplateColumns = `repeat(${INNER_C}, 48px)`;
+  g.style.gridTemplateColumns = "repeat(" + INNER_C + ", 48px)";
   g.innerHTML='';
   for(let r=1;r<=INNER_R;r++){
     for(let c=1;c<=INNER_C;c++){
