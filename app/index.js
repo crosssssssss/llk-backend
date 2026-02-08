@@ -341,19 +341,35 @@ function setStatus(){
 
 function mountTile(cell, r, c){
   let el = tileEls.get(cell.id);
+  const {x,y} = posToXY(r,c);
+
   if(!el){
     el = document.createElement('div');
     el.className = 'tile';
     el.dataset.id = String(cell.id);
     boardEl.appendChild(el);
     tileEls.set(cell.id, el);
+
+    // Spawn above the board then drop into place (simple fall animation)
+    const spawnY = y - (SIZE + GAP) * (3 + Math.floor(Math.random()*3));
+    el.style.setProperty('--x', x+'px');
+    el.style.setProperty('--y', spawnY+'px');
+    el.style.transform = 'translate(' + x + 'px,' + spawnY + 'px)';
+
+    // Next frame -> move to target, CSS transition will animate
+    requestAnimationFrame(() => {
+      el.style.setProperty('--x', x+'px');
+      el.style.setProperty('--y', y+'px');
+      el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+    });
+  } else {
+    // Existing tiles: just move to target
+    el.style.setProperty('--x', x+'px');
+    el.style.setProperty('--y', y+'px');
+    el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
   }
+
   el.textContent = EMOJI[cell.t] || String(cell.t);
-  const {x,y} = posToXY(r,c);
-  // store vars for pop keyframes
-  el.style.setProperty('--x', x+'px');
-  el.style.setProperty('--y', y+'px');
-  el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
   if(selected && selected.r===r && selected.c===c) el.classList.add('sel');
   else el.classList.remove('sel');
 }
