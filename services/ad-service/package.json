@@ -1,0 +1,16 @@
+{
+  "name": "@llk/ad-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-ad-service",
+    "lint": "echo lint-ad-service",
+    "test": "echo test-ad-service"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "mysql2": "^3.11.0"
+  }
+}

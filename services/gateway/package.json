@@ -1,0 +1,16 @@
+{
+  "name": "@llk/gateway",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-gateway",
+    "lint": "echo lint-gateway",
+    "test": "echo test-gateway"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

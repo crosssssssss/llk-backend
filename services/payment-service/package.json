@@ -1,0 +1,16 @@
+{
+  "name": "@llk/payment-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-payment-service",
+    "lint": "echo lint-payment-service",
+    "test": "echo test-payment-service"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "mysql2": "^3.11.0"
+  }
+}

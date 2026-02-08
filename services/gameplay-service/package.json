@@ -1,0 +1,16 @@
+{
+  "name": "@llk/gameplay-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-gameplay-service",
+    "lint": "echo lint-gameplay-service",
+    "test": "echo test-gameplay-service"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "mysql2": "^3.11.0"
+  }
+}

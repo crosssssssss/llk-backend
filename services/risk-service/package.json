@@ -1,0 +1,15 @@
+{
+  "name": "@llk/risk-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-risk-service",
+    "lint": "echo lint-risk-service",
+    "test": "echo test-risk-service"
+  },
+  "dependencies": {
+    "@llk/shared": "workspace:*"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@llk/bff",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-bff",
+    "lint": "echo lint-bff",
+    "test": "echo test-bff"
+  },
+  "dependencies": {
+    "@llk/shared": "workspace:*"
+  }
+}

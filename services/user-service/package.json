@@ -1,0 +1,15 @@
+{
+  "name": "@llk/user-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-user-service",
+    "lint": "echo lint-user-service",
+    "test": "echo test-user-service"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.0"
+  }
+}

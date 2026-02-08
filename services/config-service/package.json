@@ -1,0 +1,15 @@
+{
+  "name": "@llk/config-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo build-config-service",
+    "lint": "echo lint-config-service",
+    "test": "echo test-config-service"
+  },
+  "dependencies": {
+    "@llk/shared": "workspace:*"
+  }
+}
