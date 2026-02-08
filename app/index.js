@@ -252,7 +252,7 @@ const DEMO_HTML = `<!doctype html>
     button{cursor:pointer;background:#111827;color:white;border:1px solid #111827;}
     button.secondary{background:white;color:#111827;}
     .grid{display:grid;gap:6px;margin-top:16px;}
-    .cell{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid #e5e7eb;background:#f9fafb;user-select:none;}
+    .cell{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid #e5e7eb;background:#f9fafb;user-select:none;font-size:24px;line-height:1;}
     .cell.tile{background:white;border-color:#d1d5db;}
     .cell.sel{outline:3px solid #2563eb;}
     .cell.hint{outline:3px solid #f59e0b;}
@@ -301,6 +301,7 @@ const OUT = (x) => {
 const INNER_R = 8, INNER_C = 10;
 const R = INNER_R + 2, C = INNER_C + 2;
 const TILE_TYPES = 8;
+const EMOJI = ['','🍎','🍋','🍇','🍓','🍒','🥝','🍑','🍍'];
 
 let board = []; // [r][c] = tileType (0 empty)
 let selected = null;
@@ -461,7 +462,7 @@ function render(){
       const t=board[r][c];
       const d=document.createElement('div');
       d.className='cell'+(t? ' tile':'');
-      d.textContent = t? String(t):'';
+      d.textContent = t? (EMOJI[t] || String(t)) : '';
       d.dataset.r=r; d.dataset.c=c;
       if(selected && selected[0]===r && selected[1]===c) d.classList.add('sel');
       for(const hc of hintCells){ if(hc[0]===r && hc[1]===c) d.classList.add('hint'); }
