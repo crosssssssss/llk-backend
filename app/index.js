@@ -111,12 +111,146 @@ async function getOrInit(uid) {
   return rows2[0];
 }
 
+
+const CONSOLE_HTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLK Web Console</title>
+  <style>
+    body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;max-width:980px;margin:24px auto;padding:0 16px;}
+    input,select,button,textarea{font-size:14px;padding:8px;}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;}
+    .card{border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:12px 0;}
+    code{background:#f3f4f6;padding:2px 6px;border-radius:6px;}
+    pre{background:#0b1020;color:#d1e7ff;padding:12px;border-radius:10px;overflow:auto;}
+    .btn{cursor:pointer;border:1px solid #111827;background:#111827;color:white;border-radius:8px;}
+    .btn.secondary{background:white;color:#111827;}
+    .small{font-size:12px;color:#6b7280;}
+  </style>
+</head>
+<body>
+  <h2>LLK Web Console</h2>
+  <div class="small">This is a test console for backend APIs. Do not paste production secrets. JWT is kept in-memory only.</div>
+
+  <div class="card">
+    <div class="row">
+      <label>JWT:</label>
+      <input id="jwt" style="flex:1;min-width:320px" placeholder="Bearer token (paste JWT)" />
+      <label>uid:</label>
+      <input id="uid" value="u_demo" style="width:180px" />
+      <label>levelId:</label>
+      <input id="levelId" value="1" style="width:90px" />
+    </div>
+    <div class="row">
+      <button class="btn" onclick="apiStart()">Start</button>
+      <button class="btn" onclick="apiFinish()">Finish</button>
+      <button class="btn secondary" onclick="apiProgress()">Progress</button>
+      <button class="btn secondary" onclick="apiReward()">Reward (revive)</button>
+      <button class="btn secondary" onclick="apiPay()">Pay (starter_pack_6)</button>
+      <span class="small">sessionToken: <code id="st">(none)</code></span>
+    </div>
+    <div class="row">
+      <label>adTicket:</label>
+      <input id="adTicket" value="ticket_demo_001" style="width:220px" />
+      <label>orderId:</label>
+      <input id="orderId" value="order_demo_001" style="width:220px" />
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><strong>Response</strong></div>
+    <pre id="out">(no calls yet)</pre>
+  </div>
+
+<script>
+const out = (x) => {
+  const el = document.getElementById('out');
+  el.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+};
+
+function h() {
+  const jwt = document.getElementById('jwt').value.trim();
+  if (!jwt) throw new Error('JWT required');
+  return { 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json' };
+}
+
+function v(id){ return document.getElementById(id).value.trim(); }
+
+async function post(url, body) {
+  const r = await fetch(url, { method:'POST', headers: h(), body: JSON.stringify(body) });
+  const t = await r.text();
+  try { return JSON.parse(t); } catch { return { raw: t, status: r.status }; }
+}
+
+async function get(url) {
+  const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + v('jwt') } });
+  const t = await r.text();
+  try { return JSON.parse(t); } catch { return { raw: t, status: r.status }; }
+}
+
+async function apiStart(){
+  try{
+    const uid=v('uid');
+    const levelId=Number(v('levelId'));
+    const j=await post('/v1/game/start', { uid, levelId });
+    if (j?.data?.sessionToken) document.getElementById('st').textContent=j.data.sessionToken;
+    out(j);
+  }catch(e){ out(String(e)); }
+}
+
+async function apiFinish(){
+  try{
+    const uid=v('uid');
+    const levelId=Number(v('levelId'));
+    const sessionToken=document.getElementById('st').textContent;
+    const j=await post('/v1/game/finish', { uid, levelId, result:'success', score:999, durationSec:60, stars:3, sessionToken });
+    out(j);
+  }catch(e){ out(String(e)); }
+}
+
+async function apiProgress(){
+  try{
+    const uid=v('uid');
+    const j=await get('/v1/user/progress?uid='+encodeURIComponent(uid));
+    out(j);
+  }catch(e){ out(String(e)); }
+}
+
+async function apiReward(){
+  try{
+    const uid=v('uid');
+    const adTicket=v('adTicket');
+    const j=await post('/v1/ad/reward/claim', { uid, scene:'revive', adTicket });
+    out(j);
+  }catch(e){ out(String(e)); }
+}
+
+async function apiPay(){
+  try{
+    const uid=v('uid');
+    const platformOrderId=v('orderId');
+    const j=await post('/v1/payment/verify', { uid, sku:'starter_pack_6', platformOrderId });
+    out(j);
+  }catch(e){ out(String(e)); }
+}
+</script>
+</body>
+</html>`;
+
 const sessions = new Map();
 
 const server = http.createServer(async (req, res) => {
   const requestId = crypto.randomUUID();
   try {
     if (req.url === '/healthz') return send(res, 200, { ok: true, service: 'llk-backend' }, requestId);
+    if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/console'))) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(CONSOLE_HTML);
+      return;
+    }
+
 
     const a = auth(req);
     if (!a.ok) return send(res, 401, { code: 1002, message: 'UNAUTHORIZED' }, requestId);
