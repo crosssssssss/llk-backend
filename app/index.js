@@ -239,6 +239,334 @@ async function apiPay(){
 </body>
 </html>`;
 
+const DEMO_HTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLK Web Demo</title>
+  <style>
+    body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;max-width:1100px;margin:24px auto;padding:0 16px;}
+    .top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    input,button{font-size:14px;padding:8px;border-radius:8px;border:1px solid #e5e7eb;}
+    button{cursor:pointer;background:#111827;color:white;border:1px solid #111827;}
+    button.secondary{background:white;color:#111827;}
+    .grid{display:grid;gap:6px;margin-top:16px;}
+    .cell{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid #e5e7eb;background:#f9fafb;user-select:none;}
+    .cell.tile{background:white;border-color:#d1d5db;}
+    .cell.sel{outline:3px solid #2563eb;}
+    .cell.hint{outline:3px solid #f59e0b;}
+    .bar{margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .pill{padding:6px 10px;border-radius:999px;background:#f3f4f6;}
+    .small{font-size:12px;color:#6b7280}
+    .panel{margin-top:16px;border:1px solid #e5e7eb;border-radius:12px;padding:12px;}
+    pre{background:#0b1020;color:#d1e7ff;padding:12px;border-radius:10px;overflow:auto;max-height:220px}
+    a{color:#2563eb;text-decoration:none}
+  </style>
+</head>
+<body>
+  <h2>LLK Web Demo (8×10, 8 types)</h2>
+  <div class="small">A web playable demo for quick UX testing. Final WeChat mini-game will be built in Cocos.</div>
+
+  <div class="top">
+    <span class="pill">Time: <b id="time">--</b>s</span>
+    <span class="pill">Remaining: <b id="remain">--</b></span>
+    <span class="pill">Coins (demo): <b id="coins">0</b></span>
+
+    <button onclick="newGame()">New Game</button>
+    <button class="secondary" onclick="propHint()">Hint</button>
+    <button class="secondary" onclick="propShuffle()">Shuffle</button>
+    <button class="secondary" onclick="propFreeze()">Freeze +8s</button>
+
+    <span class="small">|</span>
+    <span class="small">Optional backend:</span>
+    <input id="jwt" style="min-width:360px" placeholder="paste JWT to sync with backend (optional)" />
+    <a href="/" class="small">API console</a>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="panel">
+    <div><b>Last response / debug</b></div>
+    <pre id="out">(none)</pre>
+  </div>
+
+<script>
+const OUT = (x) => {
+  const el = document.getElementById('out');
+  el.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+};
+
+// Board uses 1-cell empty border: total (rows+2) x (cols+2)
+const INNER_R = 8, INNER_C = 10;
+const R = INNER_R + 2, C = INNER_C + 2;
+const TILE_TYPES = 8;
+
+let board = []; // [r][c] = tileType (0 empty)
+let selected = null;
+let hintCells = [];
+let timer = null;
+let timeLeft = 120;
+let coins = 0;
+let sessionToken = null;
+
+function inBounds(r,c){ return r>=0 && r<R && c>=0 && c<C; }
+function isEmpty(r,c){ return board[r][c]===0; }
+
+function initEmpty(){
+  board = Array.from({length:R}, ()=> Array.from({length:C}, ()=>0));
+}
+
+function playablePositions(){
+  const ps=[];
+  for(let r=1;r<=INNER_R;r++) for(let c=1;c<=INNER_C;c++) ps.push([r,c]);
+  return ps;
+}
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function generate(){
+  initEmpty();
+  const ps=shuffle(playablePositions());
+  const n=ps.length;
+  if(n%2!==0) throw new Error('odd cells');
+  const ts=[];
+  for(let i=0;i<n/2;i++){
+    const t=(i%TILE_TYPES)+1;
+    ts.push(t,t);
+  }
+  shuffle(ts);
+  for(let i=0;i<n;i++){
+    const [r,c]=ps[i];
+    board[r][c]=ts[i];
+  }
+  ensureHasMove();
+}
+
+const DIRS=[[-1,0],[0,1],[1,0],[0,-1]];
+
+// BFS line-walk with <=2 turns
+function findPath(a,b,maxTurns=2){
+  const [ar,ac]=a,[br,bc]=b;
+  const ta=board[ar][ac], tb=board[br][bc];
+  if(!ta||!tb||ta!==tb) return null;
+  if(ar===br && ac===bc) return null;
+
+  const q=[];
+  const seen=new Set();
+  const pool=[];
+  function push(st){
+    const k=st.r+','+st.c+','+st.d+','+st.t;
+    if(seen.has(k)) return;
+    seen.add(k);
+    pool.push(st);
+    q.push(pool.length-1);
+  }
+  push({r:ar,c:ac,d:-1,t:0,prev:-1});
+
+  while(q.length){
+    const idx=q.shift();
+    const cur=pool[idx];
+    for(let nd=0; nd<4; nd++){
+      const nt = (cur.d===-1 || cur.d===nd) ? cur.t : cur.t+1;
+      if(nt>maxTurns) continue;
+      let r=cur.r, c=cur.c;
+      while(true){
+        r+=DIRS[nd][0]; c+=DIRS[nd][1];
+        if(!inBounds(r,c)) break;
+        const isTarget = (r===br && c===bc);
+        if(!isTarget && !isEmpty(r,c)) break;
+        const nxt={r,c,d:nd,t:nt,prev:idx};
+        if(isTarget) return reconstruct(nxt,pool);
+        push(nxt);
+      }
+    }
+  }
+  return null;
+}
+
+function reconstruct(end,pool){
+  const path=[[end.r,end.c]];
+  let prev=end.prev;
+  while(prev!==-1){
+    const p=pool[prev];
+    path.push([p.r,p.c]);
+    prev=p.prev;
+  }
+  path.reverse();
+  // compact duplicates
+  const out=[];
+  for(const p of path){
+    const last=out[out.length-1];
+    if(!last || last[0]!==p[0] || last[1]!==p[1]) out.push(p);
+  }
+  return out;
+}
+
+function remainingTiles(){
+  let cnt=0;
+  for(let r=1;r<=INNER_R;r++) for(let c=1;c<=INNER_C;c++) if(board[r][c]!==0) cnt++;
+  return cnt;
+}
+
+function findAnyPair(){
+  const tiles=[];
+  for(let r=1;r<=INNER_R;r++) for(let c=1;c<=INNER_C;c++){
+    const t=board[r][c];
+    if(t) tiles.push([r,c,t]);
+  }
+  for(let i=0;i<tiles.length;i++){
+    for(let j=i+1;j<tiles.length;j++){
+      if(tiles[i][2]!==tiles[j][2]) continue;
+      const p=findPath([tiles[i][0],tiles[i][1]],[tiles[j][0],tiles[j][1]],2);
+      if(p) return {a:[tiles[i][0],tiles[i][1]], b:[tiles[j][0],tiles[j][1]], path:p};
+    }
+  }
+  return null;
+}
+
+function shuffleBoard(){
+  const ps=[]; const ts=[];
+  for(let r=1;r<=INNER_R;r++) for(let c=1;c<=INNER_C;c++){
+    const t=board[r][c];
+    if(t){ ps.push([r,c]); ts.push(t); }
+  }
+  shuffle(ts);
+  for(let i=0;i<ps.length;i++){
+    const [r,c]=ps[i];
+    board[r][c]=ts[i];
+  }
+}
+
+function ensureHasMove(){
+  for(let i=0;i<20;i++){
+    if(findAnyPair()) return true;
+    shuffleBoard();
+  }
+  return !!findAnyPair();
+}
+
+function render(){
+  const g=document.getElementById('grid');
+  g.style.gridTemplateColumns = `repeat(${INNER_C}, 48px)`;
+  g.innerHTML='';
+  for(let r=1;r<=INNER_R;r++){
+    for(let c=1;c<=INNER_C;c++){
+      const t=board[r][c];
+      const d=document.createElement('div');
+      d.className='cell'+(t? ' tile':'');
+      d.textContent = t? String(t):'';
+      d.dataset.r=r; d.dataset.c=c;
+      if(selected && selected[0]===r && selected[1]===c) d.classList.add('sel');
+      for(const hc of hintCells){ if(hc[0]===r && hc[1]===c) d.classList.add('hint'); }
+      d.onclick=()=>onClick(r,c);
+      g.appendChild(d);
+    }
+  }
+  document.getElementById('remain').textContent = String(remainingTiles()/2);
+  document.getElementById('time').textContent = String(timeLeft);
+  document.getElementById('coins').textContent = String(coins);
+}
+
+function onClick(r,c){
+  if(timeLeft<=0) return;
+  if(board[r][c]===0) return;
+  hintCells=[];
+  if(!selected){ selected=[r,c]; render(); return; }
+  const a=selected; const b=[r,c];
+  selected=null;
+  const path=findPath(a,b,2);
+  if(!path){ render(); return; }
+  // remove
+  board[a[0]][a[1]]=0;
+  board[b[0]][b[1]]=0;
+  coins += 10;
+  if(remainingTiles()===0){
+    win();
+  } else {
+    ensureHasMove();
+    render();
+  }
+}
+
+function tick(){
+  timeLeft -= 1;
+  if(timeLeft<=0){ timeLeft=0; render(); lose(); return; }
+  render();
+}
+
+async function backendStart(){
+  const jwt=document.getElementById('jwt').value.trim();
+  if(!jwt) return;
+  const r = await fetch('/v1/game/start',{method:'POST',headers:{Authorization:'Bearer '+jwt,'Content-Type':'application/json'},body:JSON.stringify({uid:'u_demo',levelId:1})});
+  const j=await r.json().catch(()=>null);
+  sessionToken = j?.data?.sessionToken || null;
+  OUT({backendStart:j});
+}
+
+async function backendFinish(result){
+  const jwt=document.getElementById('jwt').value.trim();
+  if(!jwt || !sessionToken) return;
+  const r = await fetch('/v1/game/finish',{method:'POST',headers:{Authorization:'Bearer '+jwt,'Content-Type':'application/json'},body:JSON.stringify({uid:'u_demo',levelId:1,result,score:999,durationSec:120-timeLeft,stars:3,sessionToken})});
+  const j=await r.json().catch(()=>null);
+  OUT({backendFinish:j});
+}
+
+function win(){
+  clearInterval(timer);
+  backendFinish('success');
+  setTimeout(()=>alert('Win!'), 50);
+}
+function lose(){
+  clearInterval(timer);
+  backendFinish('fail');
+  setTimeout(()=>alert('Time up!'), 50);
+}
+
+function newGame(){
+  clearInterval(timer);
+  timeLeft=120;
+  coins=0;
+  selected=null;
+  hintCells=[];
+  sessionToken=null;
+  generate();
+  render();
+  backendStart();
+  timer=setInterval(tick, 1000);
+}
+
+function propHint(){
+  const p=findAnyPair();
+  hintCells = p ? [p.a, p.b] : [];
+  render();
+  OUT({hint:p});
+}
+
+function propShuffle(){
+  shuffleBoard();
+  ensureHasMove();
+  render();
+}
+
+function propFreeze(){
+  timeLeft += 8;
+  render();
+}
+
+// auto start
+newGame();
+</script>
+</body>
+</html>`;
+
+
 const sessions = new Map();
 
 const server = http.createServer(async (req, res) => {
@@ -252,7 +580,13 @@ const server = http.createServer(async (req, res) => {
     }
 
 
-    const a = auth(req);
+    
+    if (req.method === 'GET' && (req.url === '/llk' || req.url.startsWith('/llk?'))) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(DEMO_HTML);
+      return;
+    }
+const a = auth(req);
     if (!a.ok) return send(res, 401, { code: 1002, message: 'UNAUTHORIZED' }, requestId);
 
     // Routes
