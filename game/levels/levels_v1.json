@@ -1,0 +1,15 @@
+{
+  "meta": {"version": "v1"},
+  "levels": [
+    {"id": 1, "innerRows": 8, "innerCols": 10, "time": 120, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 2, "innerRows": 8, "innerCols": 10, "time": 120, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 3, "innerRows": 8, "innerCols": 10, "time": 120, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 4, "innerRows": 8, "innerCols": 10, "time": 120, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 5, "innerRows": 8, "innerCols": 10, "time": 118, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 6, "innerRows": 8, "innerCols": 10, "time": 118, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 7, "innerRows": 8, "innerCols": 10, "time": 118, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 8, "innerRows": 8, "innerCols": 10, "time": 116, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 9, "innerRows": 8, "innerCols": 10, "time": 116, "tileTypes": 8, "goal": {"type": "clear_all"}},
+    {"id": 10, "innerRows": 8, "innerCols": 10, "time": 115, "tileTypes": 9, "goal": {"type": "clear_all"}, "rewardNode": true}
+  ]
+}

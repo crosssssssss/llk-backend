@@ -15,3 +15,9 @@ Because we (the agent) cannot run Cocos Creator in this environment, we deliver 
 ## Recommended engine
 - Cocos Creator **3.x** (latest)
 
+
+## Added in v2
+- border-aware board helpers
+- level pack + generator
+- props helpers
+- Cocos 3.x script skeleton in `game/cocos3/scripts/`

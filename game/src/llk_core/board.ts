@@ -1,5 +1,9 @@
 import { Board, Cell, Pos } from './types';
 
+/**
+ * Creates a board with given rows/cols.
+ * NOTE: For typical 连连看 rules, you usually want an EMPTY BORDER so paths can go around.
+ */
 export function makeEmptyBoard(rows: number, cols: number): Board {
   const grid: Cell[][] = [];
   for (let r = 0; r < rows; r++) {
@@ -8,6 +12,14 @@ export function makeEmptyBoard(rows: number, cols: number): Board {
     grid.push(row);
   }
   return { rows, cols, grid };
+}
+
+/**
+ * Standard LLK: inner grid + 1-cell empty border.
+ * Playable area is (1..innerRows, 1..innerCols)
+ */
+export function makeBoardWithBorder(innerRows: number, innerCols: number): Board {
+  return makeEmptyBoard(innerRows + 2, innerCols + 2);
 }
 
 export function inBounds(b: Board, p: Pos): boolean {
