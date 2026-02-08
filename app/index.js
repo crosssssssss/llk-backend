@@ -262,33 +262,58 @@ const MATCH3_HTML = `<!doctype html>
     #boardWrap{margin-top:16px;}
     #board{position:relative; width: calc(8 * 54px + 7 * 6px); height: calc(8 * 54px + 7 * 6px); touch-action: none;}
     .tile{position:absolute; width:54px; height:54px; display:flex; align-items:center; justify-content:center;
-      border-radius:12px; border:1px solid #d1d5db; background:white; user-select:none;
+      border-radius:14px;
+      user-select:none;
       font-size:28px; line-height:1;
-      transition: transform 360ms cubic-bezier(.20,1.08,.32,1);
-      box-shadow: 0 14px 28px rgba(0,0,0,.14), 0 3px 0 rgba(0,0,0,.10);
-      border: 1px solid rgba(255,255,255,.55);
-      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.72));
+      transition: transform 360ms cubic-bezier(.20,1.08,.32,1), filter 140ms ease;
       will-change: transform;
+      overflow:hidden;
+
+      /* 2.5D candy body */
+      border: 1px solid rgba(255,255,255,.58);
+      box-shadow:
+        0 18px 34px rgba(0,0,0,.18),
+        0 4px 0 rgba(0,0,0,.12),
+        inset 0 1px 0 rgba(255,255,255,.62),
+        inset 0 -12px 18px rgba(0,0,0,.12);
     }
-    .tile::before{content:'';position:absolute;inset:6px 8px auto 8px;height:18px;border-radius:999px;
-      background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,0));pointer-events:none;filter: blur(.2px);}
 
-    .tile::after{content:'';position:absolute;inset:0;border-radius:12px;pointer-events:none;
-      background: radial-gradient(120px 80px at 20% 10%, rgba(255,255,255,.35), rgba(255,255,255,0) 60%),
-                  radial-gradient(120px 80px at 80% 90%, rgba(0,0,0,.10), rgba(0,0,0,0) 55%),
-                  repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 2px, rgba(255,255,255,0) 2px 6px);
-      mix-blend-mode: overlay; opacity: .55;}
+    /* Specular highlight */
+    .tile::before{content:'';position:absolute;left:-14px;top:-16px;width:96px;height:48px;border-radius:999px;
+      background: radial-gradient(closest-side, rgba(255,255,255,.92), rgba(255,255,255,0));
+      transform: rotate(-12deg);
+      pointer-events:none; opacity:.9; filter: blur(.2px);
+    }
 
-    .tile.sel{outline:3px solid rgba(37,99,235,.65); box-shadow: 0 14px 28px rgba(37,99,235,.18), 0 10px 20px rgba(0,0,0,.12), 0 2px 0 rgba(0,0,0,.08);}
+    /* Rim light + subtle sugar texture */
+    .tile::after{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
+      background:
+        radial-gradient(120px 90px at 25% 15%, rgba(255,255,255,.34), rgba(255,255,255,0) 60%),
+        radial-gradient(120px 90px at 80% 92%, rgba(0,0,0,.16), rgba(0,0,0,0) 55%),
+        linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
+        repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 2px, rgba(255,255,255,0) 2px 8px);
+      mix-blend-mode: overlay; opacity: .60;
+    }
 
-    .t1{background: linear-gradient(180deg,#ff9db1,#ff4d6d);}
-    .t2{background: linear-gradient(180deg,#ffe08a,#ffb703);}
-    .t3{background: linear-gradient(180deg,#d6c1ff,#8b5cf6);}
-    .t4{background: linear-gradient(180deg,#ffc0e8,#ff6ec7);}
-    .t5{background: linear-gradient(180deg,#ffd0a8,#ff7a3d);}
-    .t6{background: linear-gradient(180deg,#c9ffd6,#22c55e);} 
+    .tile.sel{outline:3px solid rgba(37,99,235,.65);
+      box-shadow:
+        0 18px 34px rgba(37,99,235,.16),
+        0 18px 34px rgba(0,0,0,.18),
+        0 4px 0 rgba(0,0,0,.12),
+        inset 0 1px 0 rgba(255,255,255,.62),
+        inset 0 -12px 18px rgba(0,0,0,.12);
+    }
+
+    /* Softer candy palette (keep emoji as icon) */
+    .t1{background: linear-gradient(180deg,#ffb3c1,#ff4d6d);} /* apple */
+    .t2{background: linear-gradient(180deg,#ffe7a3,#ffb703);} /* lemon */
+    .t3{background: linear-gradient(180deg,#e0ccff,#8b5cf6);} /* grape */
+    .t4{background: linear-gradient(180deg,#ffd1ea,#ff6ec7);} /* strawberry */
+    .t5{background: linear-gradient(180deg,#ffd9bf,#ff7a3d);} /* cherry */
+    .t6{background: linear-gradient(180deg,#d3ffe0,#22c55e);} /* kiwi */
+
     .tile.pop{animation: pop 360ms ease forwards;}
-    @keyframes pop{ 0%{transform: translate(var(--x), var(--y)) scale(1);} 100%{transform: translate(var(--x), var(--y)) scale(0.1); opacity:0;} }
+    @keyframes pop{ 0%{transform: translate(var(--x), var(--y)) scale(1);} 50%{transform: translate(var(--x), var(--y)) scale(1.06);} 100%{transform: translate(var(--x), var(--y)) scale(0.12); opacity:0;} }
   </style>
 </head>
 <body>
