@@ -13,6 +13,67 @@ if (!MYSQL_DSN) {
 
 const pool = mysql.createPool(MYSQL_DSN);
 
+async function migrate() {
+  // Minimal schema for test environment (idempotent)
+  await pool.query(`CREATE TABLE IF NOT EXISTS user_progress (
+    uid VARCHAR(64) PRIMARY KEY,
+    max_level INT NOT NULL DEFAULT 1,
+    coins INT NOT NULL DEFAULT 0,
+    hint_count INT NOT NULL DEFAULT 0,
+    shuffle_count INT NOT NULL DEFAULT 0,
+    freeze_count INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS level_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    uid VARCHAR(64) NOT NULL,
+    level_id INT NOT NULL,
+    result ENUM('success','fail') NOT NULL,
+    score INT NOT NULL DEFAULT 0,
+    duration_sec INT NOT NULL DEFAULT 0,
+    stars TINYINT NOT NULL DEFAULT 0,
+    props_used_json JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_uid_level(uid, level_id),
+    INDEX idx_created_at(created_at)
+  )`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS iap_order (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    uid VARCHAR(64) NOT NULL,
+    sku VARCHAR(64) NOT NULL,
+    platform_order_id VARCHAR(128) NOT NULL,
+    amount_cent INT NOT NULL,
+    status ENUM('created','paid','failed','refunded') NOT NULL DEFAULT 'created',
+    verify_msg VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_platform_order(platform_order_id),
+    INDEX idx_uid(uid)
+  )`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS ad_reward_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    uid VARCHAR(64) NOT NULL,
+    scene ENUM('revive','double','prop') NOT NULL,
+    ad_ticket VARCHAR(128) NOT NULL,
+    grant_status ENUM('success','failed','duplicate') NOT NULL,
+    reward_json JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_ticket(ad_ticket),
+    INDEX idx_uid_scene(uid, scene)
+  )`);
+}
+
+migrate().then(() => {
+  console.log('schema ok');
+}).catch((e) => {
+  console.error('schema migrate failed', e);
+});
+
+
 async function readJson(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
