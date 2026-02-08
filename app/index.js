@@ -239,6 +239,278 @@ async function apiPay(){
 </body>
 </html>`;
 
+const MATCH3_HTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MATCH3 Web Demo</title>
+  <style>
+    body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;max-width:1100px;margin:24px auto;padding:0 16px;}
+    .top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    input,button{font-size:14px;padding:8px;border-radius:8px;border:1px solid #e5e7eb;}
+    button{cursor:pointer;background:#111827;color:white;border:1px solid #111827;}
+    button.secondary{background:white;color:#111827;}
+    .grid{display:grid;gap:6px;margin-top:16px;}
+    .cell{width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid #e5e7eb;background:#f9fafb;user-select:none;font-size:28px;line-height:1;}
+    .cell.tile{background:white;border-color:#d1d5db;}
+    .cell.sel{outline:3px solid #2563eb;}
+    .bar{margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .pill{padding:6px 10px;border-radius:999px;background:#f3f4f6;}
+    .small{font-size:12px;color:#6b7280}
+    .panel{margin-top:16px;border:1px solid #e5e7eb;border-radius:12px;padding:12px;}
+    pre{background:#0b1020;color:#d1e7ff;padding:12px;border-radius:10px;overflow:auto;max-height:220px}
+    a{color:#2563eb;text-decoration:none}
+  </style>
+</head>
+<body>
+  <h2>MATCH3 Web Demo (8×8, moves)</h2>
+  <div class="small">Swap adjacent tiles to make 3+ matches. Auto clear + drop + refill + cascades.</div>
+
+  <div class="top">
+    <span class="pill">Moves: <b id="moves">--</b></span>
+    <span class="pill">Score: <b id="score">0</b></span>
+    <span class="pill">Goal 🍎: <b id="goal">0</b> / <b id="goalNeed">20</b></span>
+    <button onclick="newGame()">New Game</button>
+    <button class="secondary" onclick="propBomb()">Bomb (1)</button>
+    <span class="small">|</span>
+    <a href="/console" class="small">API console</a>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="panel">
+    <div><b>Debug</b></div>
+    <pre id="out">(none)</pre>
+  </div>
+
+<script>
+const OUT = (x) => {
+  const el = document.getElementById('out');
+  el.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+};
+
+const N = 8;
+const TYPES = 6;
+const EMOJI = ['','🍎','🍋','🍇','🍓','🍒','🥝'];
+
+let grid = []; // grid[r][c] = type 1..TYPES
+let selected = null;
+let moves = 25;
+let score = 0;
+let goalType = 1; // 🍎
+let goal = 0;
+let goalNeed = 20;
+let bomb = 1;
+let busy = false;
+
+function randType(){ return 1 + Math.floor(Math.random()*TYPES); }
+function inBounds(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+function cloneGrid(){ return grid.map(row=>row.slice()); }
+
+function setStatus(){
+  document.getElementById('moves').textContent = String(moves);
+  document.getElementById('score').textContent = String(score);
+  document.getElementById('goal').textContent = String(goal);
+  document.getElementById('goalNeed').textContent = String(goalNeed);
+}
+
+function render(){
+  const g=document.getElementById('grid');
+  g.style.gridTemplateColumns = "repeat(" + N + ", 54px)";
+  g.innerHTML='';
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const t=grid[r][c];
+      const d=document.createElement('div');
+      d.className='cell tile';
+      if(selected && selected.r===r && selected.c===c) d.classList.add('sel');
+      d.textContent = EMOJI[t] || String(t);
+      d.onclick=()=>onClick(r,c);
+      g.appendChild(d);
+    }
+  }
+  setStatus();
+}
+
+function initGrid(){
+  grid = Array.from({length:N}, ()=> Array.from({length:N}, ()=>0));
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      let t=randType();
+      // avoid immediate matches on spawn
+      while((c>=2 && t===grid[r][c-1] && t===grid[r][c-2]) || (r>=2 && t===grid[r-1][c] && t===grid[r-2][c])){
+        t=randType();
+      }
+      grid[r][c]=t;
+    }
+  }
+}
+
+function findMatches(){
+  const marks = Array.from({length:N}, ()=> Array.from({length:N}, ()=>false));
+  // rows
+  for(let r=0;r<N;r++){
+    let c=0;
+    while(c<N){
+      const t=grid[r][c];
+      let k=c+1;
+      while(k<N && grid[r][k]===t) k++;
+      if(t && k-c>=3){ for(let x=c;x<k;x++) marks[r][x]=true; }
+      c=k;
+    }
+  }
+  // cols
+  for(let c=0;c<N;c++){
+    let r=0;
+    while(r<N){
+      const t=grid[r][c];
+      let k=r+1;
+      while(k<N && grid[k][c]===t) k++;
+      if(t && k-r>=3){ for(let x=r;x<k;x++) marks[x][c]=true; }
+      r=k;
+    }
+  }
+  return marks;
+}
+
+function anyMarked(marks){
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(marks[r][c]) return true;
+  return false;
+}
+
+function clearMarked(marks){
+  let cleared=0;
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      if(marks[r][c]){
+        const t=grid[r][c];
+        if(t===goalType) goal++;
+        grid[r][c]=0;
+        cleared++;
+      }
+    }
+  }
+  score += cleared * 10;
+}
+
+function dropAndRefill(){
+  for(let c=0;c<N;c++){
+    let write=N-1;
+    for(let r=N-1;r>=0;r--){
+      if(grid[r][c]!==0){
+        grid[write][c]=grid[r][c];
+        if(write!==r) grid[r][c]=0;
+        write--;
+      }
+    }
+    for(let r=write;r>=0;r--) grid[r][c]=randType();
+  }
+}
+
+async function resolveCascades(){
+  let loops=0;
+  while(true){
+    const m=findMatches();
+    if(!anyMarked(m)) break;
+    clearMarked(m);
+    dropAndRefill();
+    loops++;
+    if(loops>20) break;
+  }
+}
+
+function isAdjacent(a,b){
+  const dr=Math.abs(a.r-b.r), dc=Math.abs(a.c-b.c);
+  return (dr+dc)===1;
+}
+
+async function onClick(r,c){
+  if(busy) return;
+  if(moves<=0) return;
+
+  if(!selected){ selected={r,c}; render(); return; }
+  const a=selected;
+  const b={r,c};
+  selected=null;
+
+  if(!isAdjacent(a,b)) { render(); return; }
+
+  // swap
+  busy=true;
+  const before=cloneGrid();
+  const tmp=grid[a.r][a.c];
+  grid[a.r][a.c]=grid[b.r][b.c];
+  grid[b.r][b.c]=tmp;
+
+  const m=findMatches();
+  if(!anyMarked(m)){
+    // invalid move -> swap back
+    grid=before;
+    busy=false;
+    render();
+    return;
+  }
+
+  moves -= 1;
+  await resolveCascades();
+  render();
+  busy=false;
+  checkEnd();
+}
+
+function checkEnd(){
+  if(goal>=goalNeed){
+    setTimeout(()=>alert('Win!'), 50);
+    return;
+  }
+  if(moves<=0){
+    setTimeout(()=>alert('Out of moves!'), 50);
+  }
+}
+
+async function propBomb(){
+  if(busy) return;
+  if(bomb<=0) return;
+  if(!selected){ OUT('Select a tile then click Bomb.'); return; }
+  busy=true;
+  bomb -= 1;
+  const r0=selected.r, c0=selected.c;
+  selected=null;
+  // clear 3x3
+  const marks = Array.from({length:N}, ()=> Array.from({length:N}, ()=>false));
+  for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+    const r=r0+dr, c=c0+dc;
+    if(inBounds(r,c)) marks[r][c]=true;
+  }
+  clearMarked(marks);
+  dropAndRefill();
+  await resolveCascades();
+  render();
+  busy=false;
+  checkEnd();
+}
+
+function newGame(){
+  busy=false;
+  selected=null;
+  moves=25;
+  score=0;
+  goal=0;
+  goalNeed=20;
+  goalType=1;
+  bomb=1;
+  initGrid();
+  // resolve any accidental matches
+  resolveCascades().then(()=>{ render(); });
+}
+
+newGame();
+</script>
+</body>
+</html>`;
+
+
 const DEMO_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -591,6 +863,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && (req.url === '/llk' || req.url.startsWith('/llk?'))) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(DEMO_HTML);
+      return;
+    }
+
+    if (req.method === 'GET' && (req.url === '/match3' || req.url.startsWith('/match3?'))) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(MATCH3_HTML);
       return;
     }
 const a = auth(req);
