@@ -573,7 +573,13 @@ const server = http.createServer(async (req, res) => {
   const requestId = crypto.randomUUID();
   try {
     if (req.url === '/healthz') return send(res, 200, { ok: true, service: 'llk-backend' }, requestId);
-    if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/console'))) {
+    if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/llk'))) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(DEMO_HTML);
+      return;
+    }
+
+    if (req.method === 'GET' && (req.url.startsWith('/console'))) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(CONSOLE_HTML);
       return;
