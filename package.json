@@ -1,15 +1,12 @@
 {
-  "name": "llk-backend-monorepo",
+  "name": "llk-backend-railway",
   "private": true,
-  "version": "1.0.0",
-  "packageManager": "pnpm@9.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test"
+    "start": "node app/index.js"
   },
-  "devDependencies": {
-    "typescript": "^5.6.2"
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.0"
   }
 }
