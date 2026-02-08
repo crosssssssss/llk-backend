@@ -264,23 +264,30 @@ const MATCH3_HTML = `<!doctype html>
     .tile{position:absolute; width:54px; height:54px; display:flex; align-items:center; justify-content:center;
       border-radius:12px; border:1px solid #d1d5db; background:white; user-select:none;
       font-size:28px; line-height:1;
-      transition: transform 320ms cubic-bezier(.22,1.15,.36,1);
-      box-shadow: 0 10px 20px rgba(0,0,0,.10), 0 2px 0 rgba(0,0,0,.08);
-      background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.78));
+      transition: transform 420ms cubic-bezier(.18,1.05,.3,1);
+      box-shadow: 0 14px 28px rgba(0,0,0,.14), 0 3px 0 rgba(0,0,0,.10);
+      border: 1px solid rgba(255,255,255,.55);
+      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.72));
       will-change: transform;
     }
     .tile::before{content:'';position:absolute;inset:6px 8px auto 8px;height:18px;border-radius:999px;
-      background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,0));pointer-events:none;filter: blur(.2px);}
+      background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,0));pointer-events:none;filter: blur(.2px);}
+
+    .tile::after{content:'';position:absolute;inset:0;border-radius:12px;pointer-events:none;
+      background: radial-gradient(120px 80px at 20% 10%, rgba(255,255,255,.35), rgba(255,255,255,0) 60%),
+                  radial-gradient(120px 80px at 80% 90%, rgba(0,0,0,.10), rgba(0,0,0,0) 55%),
+                  repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 2px, rgba(255,255,255,0) 2px 6px);
+      mix-blend-mode: overlay; opacity: .55;}
 
     .tile.sel{outline:3px solid rgba(37,99,235,.65); box-shadow: 0 14px 28px rgba(37,99,235,.18), 0 10px 20px rgba(0,0,0,.12), 0 2px 0 rgba(0,0,0,.08);}
 
-    .t1{background: linear-gradient(180deg,#ff8a8a,#ff3b3b);}
-    .t2{background: linear-gradient(180deg,#ffe38a,#ffbf2f);}
-    .t3{background: linear-gradient(180deg,#c7a6ff,#7c3aed);}
-    .t4{background: linear-gradient(180deg,#ffb3d9,#ff5aa5);}
-    .t5{background: linear-gradient(180deg,#ffb199,#ff6b3d);}
-    .t6{background: linear-gradient(180deg,#b8ffcf,#22c55e);} 
-    .tile.pop{animation: pop 320ms ease forwards;}
+    .t1{background: linear-gradient(180deg,#ff9db1,#ff4d6d);}
+    .t2{background: linear-gradient(180deg,#ffe08a,#ffb703);}
+    .t3{background: linear-gradient(180deg,#d6c1ff,#8b5cf6);}
+    .t4{background: linear-gradient(180deg,#ffc0e8,#ff6ec7);}
+    .t5{background: linear-gradient(180deg,#ffd0a8,#ff7a3d);}
+    .t6{background: linear-gradient(180deg,#c9ffd6,#22c55e);} 
+    .tile.pop{animation: pop 420ms ease forwards;}
     @keyframes pop{ 0%{transform: translate(var(--x), var(--y)) scale(1);} 100%{transform: translate(var(--x), var(--y)) scale(0.1); opacity:0;} }
   </style>
 </head>
@@ -459,7 +466,7 @@ async function clearMarkedAnimated(marks){
   }
   score += cleared * 10;
   setStatus();
-  await sleep(340);
+  await sleep(460);
   // remove popped dom nodes
   for(const id of toPop){
     const el=tileEls.get(id);
@@ -492,7 +499,7 @@ async function resolveCascades(){
     await clearMarkedAnimated(m);
     dropAndRefill();
     renderAll();
-    await sleep(340);
+    await sleep(460);
     loops++;
     if(loops>25) break;
   }
@@ -514,7 +521,7 @@ async function trySwap(a,b){
   grid[a.r][a.c]=grid[b.r][b.c];
   grid[b.r][b.c]=tmp;
   renderAll();
-  await sleep(340);
+  await sleep(460);
 
   const m=findMatches();
   if(!anyMarked(m)){
@@ -523,7 +530,7 @@ async function trySwap(a,b){
     grid[a.r][a.c]=grid[b.r][b.c];
     grid[b.r][b.c]=tmp2;
     renderAll();
-    await sleep(340);
+    await sleep(460);
     busy=false;
     return;
   }
@@ -563,7 +570,7 @@ async function propBomb(){
   await clearMarkedAnimated(marks);
   dropAndRefill();
   renderAll();
-  await sleep(340);
+  await sleep(460);
   await resolveCascades();
   renderAll();
   busy=false;
